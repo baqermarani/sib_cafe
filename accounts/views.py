@@ -4,14 +4,13 @@ from django.utils import timezone
 from django.views import View
 from django.contrib.auth import logout, login, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import User
-from .forms import UserRegistrationForm, UserLoginForm
+from .forms import UserLoginForm, UserCreationForm
 from django.contrib import messages
 
 
 class SignupView(View):
 
-    form_class = UserRegistrationForm
+    form_class = UserCreationForm
     template_name = 'accounts/signup.html'
 
     def get(self, request):
@@ -21,14 +20,7 @@ class SignupView(View):
     def post(self, request):
         form = self.form_class(request.POST)
         if form.is_valid():
-            personal_id = form.cleaned_data['personal_id']
-            phone_number = form.cleaned_data['phone_number']
-            password = form.cleaned_data['password']
-            email = form.cleaned_data['email']
-            full_name = form.cleaned_data['full_name']
-            print(email)
-            print(full_name)
-            User.objects.create_user(personal_id, full_name, email, phone_number, password)
+            form.save()
             messages.success(request, 'Your account has been created successfully', 'alert alert-success')
             return redirect('home:home')
         else:

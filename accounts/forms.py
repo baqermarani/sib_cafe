@@ -5,7 +5,7 @@ from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
 
 class UserCreationForm(forms.ModelForm):
-    """Create a Form for creation User in Admin Panel"""
+    """Create a Form for creation User in Admin Panel and User Client"""
     password1 = forms.CharField(label='Password', widget=forms.PasswordInput)
     password2 = forms.CharField(label='Password confirmation', widget=forms.PasswordInput)
 
@@ -36,33 +36,6 @@ class UserChangeForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['personal_id', 'email', 'full_name', 'phone_number', 'password']
-
-
-class UserRegistrationForm(forms.Form):
-
-    email = forms.EmailField()
-    personal_id = forms.CharField(max_length=8, label='Personal ID')
-    full_name = forms.CharField(label='Full Name')
-    phone_number = forms.CharField(label='Phone Number', max_length=11)
-    password = forms.CharField(label='Password', widget=forms.PasswordInput)
-
-    def clean_email(self):
-        email = self.cleaned_data['email']
-        if User.objects.filter(email=email).exists():
-            raise ValidationError('Email Already Exists')
-        return email
-
-    def clean_phone(self):
-        phone = self.cleaned_data['phone_number']
-        if User.objects.filter(phone_number=phone).exists():
-            raise ValidationError('Phone Number Already Exists')
-        return phone
-
-    def clean_id(self):
-        personal_id = self.cleaned_data['personal_id']
-        if User.objects.filter(personal_id=personal_id).exists():
-            raise ValidationError('User Already Exist')
-        return personal_id
 
 
 class UserLoginForm(forms.Form):
