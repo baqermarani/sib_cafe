@@ -16,9 +16,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
+    class Meta:
+        db_table = 'User'
+
     @property
     def is_staff(self):
         return self.is_admin
 
     def __str__(self):
-        return f'{self.personal_id} - {self.full_name}'
+        return f'{self.full_name}'
