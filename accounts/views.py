@@ -1,57 +1,90 @@
-
-from django.shortcuts import render, HttpResponse, redirect
-from django.utils import timezone
+from django.shortcuts import get_object_or_404, redirect
 from django.views import View
-from django.contrib.auth import logout, login, authenticate
+from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .forms import UserLoginForm, UserCreationForm
-from django.contrib import messages
+from rest_framework import status
+from .serializers import UserRegisterSerializer, UserSerializer, UserLoginSerializer
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import User
 
 
-class SignupView(View):
+class UserViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, ]
+    queryset = User.objects.all()
 
-    form_class = UserCreationForm
-    template_name = 'accounts/signup.html'
+    def list(self, request):
+        serializer = UserSerializer(self.queryset, many=True)
+        return Response(serializer.data)
 
-    def get(self, request):
-        form = self.form_class(None)
-        return render(request, self.template_name, {'form': form})
+    def retrieve(self, request, pk=None):
+        user = get_object_or_404(self.queryset, pk=pk)  # get user by id
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+    def partial_update(self, request, pk=None):
+        user = get_object_or_404(self.queryset, pk=pk)  # get user by id
+        if user != request.user:
+            return Response({'massage': 'You are not authorized to update this user'})
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        user = get_object_or_404(self.queryset, pk=pk)
+        if user != request.user:
+            return Response({'massage': 'You are not authorized to update this user'})
+        user.is_active = False
+        user.save()
+        return Response({'massage': 'User deleted successfully'})
+
+
+class RegisterView(APIView):
+    permission_classes = [AllowAny, ]
 
     def post(self, request):
-        form = self.form_class(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Your account has been created successfully', 'alert alert-success')
-            return redirect('home:home')
-        else:
-            messages.error(request, 'BAD REQUEST.', 'alert alert-danger')
-            return redirect('accounts:user_signup')
+        serializer = UserRegisterSerializer(data=request.data)
+        valid = serializer.is_valid(raise_exception=True)
+
+        if valid:
+            serializer.save()
+            status_code = status.HTTP_201_CREATED
+
+            response = {
+                'success': True,
+                'statusCode': status_code,
+                'message': 'User successfully registered!',
+                'user': serializer.data
+            }
+
+            return Response(response, status=status_code)
 
 
-class LoginView(View):
-    form_class = UserLoginForm
-    template_name = 'accounts/login.html'
-
-    def get(self, request):
-        form = self.form_class(None)
-        return render(request, self.template_name, {'form': form})
+class UserLoginView(APIView):
+    serializer_class = UserLoginSerializer
+    permission_classes = [AllowAny, ]
 
     def post(self, request):
-        form = self.form_class(request.POST)
-        if form.is_valid():
-            user = authenticate(request, personal_id=form.cleaned_data['personal_id'],
-                                password=form.cleaned_data['password'])
-            if user is not None:
-                user.last_login = timezone.now()
-                user.save()
-                login(request, user)
-                return redirect('home:home')
-            else:
-                messages.error(request, 'Invalid Username or Password', 'alert alert-danger')
-        return render(request, self.template_name, {'form': form})
+        serializer = self.serializer_class(data=request.data)
+        valid = serializer.is_valid(raise_exception=True)
 
+        if valid:
+            status_code = status.HTTP_200_OK
 
-class LogoutView(LoginRequiredMixin, View):
-    def get(self, request):
-        logout(request)
-        return redirect('accounts:user_login')
+            response = {
+                'success': True,
+                'statusCode': status_code,
+                'message': 'User logged in successfully',
+                'access': serializer.data['access'],
+                'refresh': serializer.data['refresh'],
+                'authenticatedUser': {
+                    'personal_id': serializer.data['personal_id']
+                }
+            }
+
+            return Response(response, status=status_code)
+
